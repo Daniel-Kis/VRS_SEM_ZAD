@@ -1,7 +1,7 @@
 # VRS - Charakteristika Osvetlenia
 
 Cieľ projektu je pomocou viacsegmentového svetelného senzora vykresliť charakteristiku okolitého osvetlenia. Senzor bude otáčaní pomocou servo motora.
-Pomocou STM32F303K mikrokontrolera sa budú spracovať dáta zo senzora, ktoré následne budú postlaté prostredníctvom USART do PC. V Matlabe bude vytvorená aplikácia, ktorá vizualizuje charakteristiku okolitého osvetlenia.
+Pomocou STM32F303K mikrokontrolera sa budú spracovať dáta zo senzora, ktoré následne budú poslaté prostredníctvom USART do PC. V Matlabe bude vytvorená aplikácia, ktorá vizualizuje charakteristiku okolitého osvetlenia.
 
 # VRS - Characteristics of ambient lighting
 
