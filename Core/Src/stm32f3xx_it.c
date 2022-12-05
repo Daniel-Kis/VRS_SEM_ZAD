@@ -187,7 +187,7 @@ void SysTick_Handler(void)
   /* USER CODE BEGIN SysTick_IRQn 0 */
 
   /* USER CODE END SysTick_IRQn 0 */
-
+  HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
   /* USER CODE END SysTick_IRQn 1 */
@@ -270,13 +270,13 @@ void DMA1_Channel7_IRQHandler(void)
   */
 //void I2C1_EV_IRQHandler(void)
 //{
-  /* USER CODE BEGIN I2C1_EV_IRQn 0 */
-
-  /* USER CODE END I2C1_EV_IRQn 0 */
-
-  /* USER CODE BEGIN I2C1_EV_IRQn 1 */
-
-  /* USER CODE END I2C1_EV_IRQn 1 */
+//  /* USER CODE BEGIN I2C1_EV_IRQn 0 */
+////////////////////////////////////
+//  /* USER CODE END I2C1_EV_IRQn 0 */
+//
+//  /* USER CODE BEGIN I2C1_EV_IRQn 1 */
+////////////////////////////////////
+//  /* USER CODE END I2C1_EV_IRQn 1 */
 //}
 
 /* USER CODE BEGIN 1 */
