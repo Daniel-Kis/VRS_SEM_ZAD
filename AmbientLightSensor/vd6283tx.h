@@ -44,13 +44,14 @@
 #define VD6283TX_GPIO1_DRV_CFG			0x41
 
 uint8_t vd6283tx_init(void);
+uint8_t vd6283tx_de_init(void);
 uint8_t vd6283tx_silicon_init(void);
 uint8_t vd6283tx_read_byte(uint8_t reg_addr);
 uint8_t vd6283tx_get_interrupt(void);
 void vd6283tx_write_byte(uint8_t reg_addr, uint8_t value);
 void vd6283tx_readArray(uint8_t * data, uint8_t reg, uint8_t length);
 void VD6283_INTRHandler(void);
-void vd6283tx_ctrl_reg_init(void);
+void vd6283tx_ctrl_reg_init(uint8_t config, uint8_t period);
 void vd6283tx_ctrl_reg_reset(void);
 void vd6283tx_set_als_gain(void);
 void vd6283tx_set_als_exposure(void);
@@ -59,9 +60,11 @@ void vd6283tx_als_channel_enable(void);
 void vd6283tx_als_channel6_enable(void);
 void vd6283tx_clear_interrupt(void);
 void vd6283tx_sda_config(void);
-float vd6283tx_get_als_ch1();
-float vd6283tx_get_als_ch2();
-float vd6283tx_get_als_ch3();
-float vd6283tx_get_als_ch4();
-float vd6283tx_get_als_ch5();
-float vd6283tx_get_als_ch6();
+void vd6283tx_calculate_cct(int chRed, int chGreen, int chBlue, double *returnData);
+int vd6283tx_get_als_ch1();
+int vd6283tx_get_als_ch2();
+int vd6283tx_get_als_ch3();
+int vd6283tx_get_als_ch4();
+int vd6283tx_get_als_ch5();
+int vd6283tx_get_als_ch6();
+float vd6283tx_get_als_exposure(void);

@@ -63,9 +63,9 @@ void MX_USART2_UART_Init(void)
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
   /**USART2 GPIO Configuration
   PA2   ------> USART2_TX
-  PA3   ------> USART2_RX
+  PA15   ------> USART2_RX
   */
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_2|LL_GPIO_PIN_3;
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_2|LL_GPIO_PIN_15;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
@@ -117,7 +117,7 @@ void MX_USART2_UART_Init(void)
   LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_6);
   LL_USART_EnableDMAReq_RX(USART2);
 
-#if !POLLING
+#if POLLING
   LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_6);
   LL_DMA_EnableIT_HT(DMA1, LL_DMA_CHANNEL_6);
 #endif
@@ -127,6 +127,9 @@ void MX_USART2_UART_Init(void)
   LL_USART_EnableDMAReq_TX(USART2);
 
   LL_DMA_EnableIT_TE(DMA1, LL_DMA_CHANNEL_7);
+
+  NVIC_SetPriority(USART2_IRQn, 0);
+  NVIC_EnableIRQ(USART2_IRQn);
   /* USER CODE END USART2_Init 1 */
   USART_InitStruct.BaudRate = 38400;
   USART_InitStruct.DataWidth = LL_USART_DATAWIDTH_8B;
@@ -140,7 +143,7 @@ void MX_USART2_UART_Init(void)
   LL_USART_ConfigAsyncMode(USART2);
   LL_USART_Enable(USART2);
   /* USER CODE BEGIN USART2_Init 2 */
-#if !POLLING
+#if POLLING
   LL_USART_EnableIT_IDLE(USART2);
 #endif
   /* USER CODE END USART2_Init 2 */

@@ -36,23 +36,30 @@ uint8_t vd6283tx_init(void)
 		//return status;
 	}
 	vd6283tx_ctrl_reg_reset();
-	LL_mDelay(100);
-	vd6283tx_ctrl_reg_init();
-	LL_mDelay(100);
+	LL_mDelay(200);
+	vd6283tx_ctrl_reg_init(0x07, 0x01);
+	LL_mDelay(200);
 	vd6283tx_set_als_gain();
-	LL_mDelay(100);
+	LL_mDelay(200);
 	vd6283tx_set_als_exposure();
-	LL_mDelay(100);
+	LL_mDelay(200);
 	vd6283tx_set_gpio1();
-	LL_mDelay(100);
+	LL_mDelay(200);
 	vd6283tx_sda_config();
-	LL_mDelay(100);
+	LL_mDelay(200);
 	vd6283tx_als_channel_enable();
-	LL_mDelay(100);
+	LL_mDelay(200);
 	vd6283tx_als_channel6_enable();
-	LL_mDelay(100);
+	LL_mDelay(200);
 
 	return status;
+}
+
+uint8_t vd6283tx_de_init(void)
+{
+	vd6283tx_ctrl_reg_init(0x00,0x00);
+
+	return 1;
 }
 
 uint8_t vd6283tx_silicon_init(void)
@@ -73,7 +80,7 @@ uint8_t vd6283tx_silicon_init(void)
 		//return status;
 	}
 
-	vd6283tx_ctrl_reg_init();
+	vd6283tx_ctrl_reg_init(0x07,0x01);
 	vd6283tx_set_als_gain();
 	vd6283tx_als_channel_enable();
 
@@ -111,11 +118,11 @@ void vd6283tx_sda_config(void)
 	vd6283tx_write_byte(VD6283TX_SDA_DRV_CFG,config);
 }
 
-void vd6283tx_ctrl_reg_init(void)
+void vd6283tx_ctrl_reg_init(uint8_t config, uint8_t period)
 {
 	volatile uint8_t als_ctrl = vd6283tx_read_byte(VD6283TX_ALS_CTRL);
 	als_ctrl &= ~0x07;
-	als_ctrl |= 0x07;
+	als_ctrl |= config;
 
 	vd6283tx_write_byte(VD6283TX_ALS_CTRL,als_ctrl);
 
@@ -123,7 +130,7 @@ void vd6283tx_ctrl_reg_init(void)
 
 	volatile uint8_t als_period = vd6283tx_read_byte(VD6283TX_ALS_PERIOD);
 	als_period &= ~0xFC;
-	als_period |= 0x01;
+	als_period |= period;
 
 	vd6283tx_write_byte(VD6283TX_ALS_PERIOD,als_period);
 }
@@ -134,7 +141,9 @@ void vd6283tx_ctrl_reg_reset(void)
 	als_ctrl &= ~0x07;
 	als_ctrl |= 0x00;
 
+	LL_mDelay(100);
 	vd6283tx_write_byte(VD6283TX_ALS_CTRL,als_ctrl);
+	LL_mDelay(100);
 }
 
 void vd6283tx_set_als_gain(void)
@@ -215,58 +224,103 @@ void vd6283tx_als_channel6_enable(void)
 	vd6283tx_write_byte(VD6283TX_ALS_CHANNEL6_ENABLE,als_enable);
 }
 
-float vd6283tx_get_als_ch1()
+void vd6283tx_calculate_cct(int chRed, int chGreen, int chBlue, double *returnData)
+{
+	// inputs: channel 1; channel 4; channel 3
+	//                        R         G       B
+	static const float cX[] = {0.20557, 0.4167,-0.14382};
+	static const float cY[] = {-0.02875, 0.506372, -0.12061};
+	static const float cZ[] = {-0.55263, 0.335866, 0.494781};
+
+	float data[3], tempX = 0, tempY = 0, tempZ = 0, x = 0, y = 0, denum = 1, n = 1;
+	double cct = 0;
+	float exposure_time = vd6283tx_get_als_exposure();
+	if(exposure_time > 0)
+		exposure_time = 0.1008/exposure_time;
+	data[0] = (float)chRed/256.0;
+	data[1] = (float)chGreen/256.0;
+	data[2] = (float)chBlue/256.0;
+	for(int i = 0; i < 3; i++)
+	{
+		tempX += data[i]*cX[i];
+		tempY += data[i]*cY[i]; // LUX
+		tempZ += data[i]*cZ[i];
+	}
+	denum = tempX + tempY + tempZ;
+	if(denum != 0)
+	{
+		x = tempX/denum;
+		y = tempY/denum;
+	}
+	n = (x-0.3320)/(0.1858-y);
+	cct = (437*(n*n*n))+(3601*(n*n))+(6861*n)+5517;
+	returnData[0] = tempY * exposure_time;
+	returnData[1] = cct;
+	returnData[2] = x;
+    returnData[3] = y;
+}
+
+int vd6283tx_get_als_ch1()
 {
 	volatile uint8_t ALS_CH1_DATA_H = vd6283tx_read_byte(VD6283TX_ALS_CH1_DATA_H);
 	volatile uint8_t ALS_CH1_DATA_M = vd6283tx_read_byte(VD6283TX_ALS_CH1_DATA_M);
 	volatile uint8_t ALS_CH1_DATA_L = vd6283tx_read_byte(VD6283TX_ALS_CH1_DATA_L);
 	volatile int32_t ALS_CH1_DATA = ALS_CH1_DATA_H << 16 | ALS_CH1_DATA_M << 8 | ALS_CH1_DATA_L;
-	return (float) ALS_CH1_DATA;
+	return (int) ALS_CH1_DATA;
 }
 
-float vd6283tx_get_als_ch2()
+int vd6283tx_get_als_ch2()
 {
 	volatile uint8_t ALS_CH2_DATA_H = vd6283tx_read_byte(VD6283TX_ALS_CH2_DATA_H);
 	volatile uint8_t ALS_CH2_DATA_M = vd6283tx_read_byte(VD6283TX_ALS_CH2_DATA_M);
 	volatile uint8_t ALS_CH2_DATA_L = vd6283tx_read_byte(VD6283TX_ALS_CH2_DATA_L);
 	volatile int32_t ALS_CH2_DATA = ALS_CH2_DATA_H << 16 | ALS_CH2_DATA_M << 8 | ALS_CH2_DATA_L;
-	return (float) ALS_CH2_DATA;
+	return (int) ALS_CH2_DATA;
 }
 
-float vd6283tx_get_als_ch3()
+int vd6283tx_get_als_ch3()
 {
 	volatile uint8_t ALS_CH3_DATA_H = vd6283tx_read_byte(VD6283TX_ALS_CH3_DATA_H);
 	volatile uint8_t ALS_CH3_DATA_M = vd6283tx_read_byte(VD6283TX_ALS_CH3_DATA_M);
 	volatile uint8_t ALS_CH3_DATA_L = vd6283tx_read_byte(VD6283TX_ALS_CH3_DATA_L);
 	volatile int32_t ALS_CH3_DATA = ALS_CH3_DATA_H << 16 | ALS_CH3_DATA_M << 8 | ALS_CH3_DATA_L;
-	return (float) ALS_CH3_DATA;
+	return (int) ALS_CH3_DATA;
 }
 
-float vd6283tx_get_als_ch4()
+int vd6283tx_get_als_ch4()
 {
 	volatile uint8_t ALS_CH4_DATA_H = vd6283tx_read_byte(VD6283TX_ALS_CH4_DATA_H);
 	volatile uint8_t ALS_CH4_DATA_M = vd6283tx_read_byte(VD6283TX_ALS_CH4_DATA_M);
 	volatile uint8_t ALS_CH4_DATA_L = vd6283tx_read_byte(VD6283TX_ALS_CH4_DATA_L);
 	volatile int32_t ALS_CH4_DATA = ALS_CH4_DATA_H << 16 | ALS_CH4_DATA_M << 8 | ALS_CH4_DATA_L;
-	return (float) ALS_CH4_DATA;
+	return (int) ALS_CH4_DATA;
 }
 
-float vd6283tx_get_als_ch5()
+int vd6283tx_get_als_ch5()
 {
 	volatile uint8_t ALS_CH5_DATA_H = vd6283tx_read_byte(VD6283TX_ALS_CH5_DATA_H);
 	volatile uint8_t ALS_CH5_DATA_M = vd6283tx_read_byte(VD6283TX_ALS_CH5_DATA_M);
 	volatile uint8_t ALS_CH5_DATA_L = vd6283tx_read_byte(VD6283TX_ALS_CH5_DATA_L);
 	volatile int32_t ALS_CH5_DATA = ALS_CH5_DATA_H << 16 | ALS_CH5_DATA_M << 8 | ALS_CH5_DATA_L;
-	return (float) ALS_CH5_DATA;
+	return (int) ALS_CH5_DATA;
 }
 
-float vd6283tx_get_als_ch6()
+int vd6283tx_get_als_ch6()
 {
 	volatile uint8_t ALS_CH6_DATA_H = vd6283tx_read_byte(VD6283TX_ALS_CH6_DATA_H);
 	volatile uint8_t ALS_CH6_DATA_M = vd6283tx_read_byte(VD6283TX_ALS_CH6_DATA_M);
 	volatile uint8_t ALS_CH6_DATA_L = vd6283tx_read_byte(VD6283TX_ALS_CH6_DATA_L);
 	volatile int32_t ALS_CH6_DATA = ALS_CH6_DATA_H << 16 | ALS_CH6_DATA_M << 8 | ALS_CH6_DATA_L;
-	return (float) ALS_CH6_DATA;
+	return (int) ALS_CH6_DATA;
+}
+
+float vd6283tx_get_als_exposure(void)
+{
+	volatile uint8_t als_exposure_L = vd6283tx_read_byte(VD6283TX_ALS_EXPOSURE_L);
+	volatile uint8_t als_exposure_M = vd6283tx_read_byte(VD6283TX_ALS_EXPOSURE_M);
+	als_exposure_M &= ~0xFC;
+	volatile uint16_t exposure_time = als_exposure_M << 2 | als_exposure_L;
+	return (float) (exposure_time+1)*(16384.0/10240000.0);
 }
 
 void VD6283_INTRHandler(void)
