@@ -10,4 +10,4 @@ The STM32F303K microcontroller will be used to to process the raw data from the 
 
 ![alt text](https://github.com/Daniel-Kis/VRS_SEM_ZAD/blob/main/Images/VRS_FINAL_FLOWCHART.drawio.png?raw=true)
 
-(Flowchart of the communication between hardware)
+
