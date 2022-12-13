@@ -26,7 +26,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "string.h"
+#include "stdio.h"
+#include "vd6283tx.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,15 +48,22 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-char formated_text[20];
-float data[6], temp;
+char formated_text[80];
+int data[6], temp;
+int angleStep = 0;
+int itterations = 0;
+double cctData[4] = {0};
 uint8_t test;
+uint8_t status = 0;
+uint8_t alreadyInitialized = 0;
+uint8_t startSending = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void proccesDmaData(uint8_t sign);
+void Servo_Control(uint16_t angle);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -78,6 +87,14 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
+
+  /* System interrupt init*/
+  NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+
+  /* SysTick_IRQn interrupt configuration */
+  NVIC_SetPriority(SysTick_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),15, 0));
 
   /* USER CODE END Init */
 
@@ -95,17 +112,10 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  uint8_t status = 0;
-  HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_1);
-//  if(vd6283tx_init())
-//	  status = 1;
-//  else
-//	  status = 0;
-  /*data[0] = vd6283tx_get_als_ch1();
-  data[1] = vd6283tx_get_als_ch2();
-  data[2] = vd6283tx_get_als_ch3();
-  data[3] = vd6283tx_get_als_ch4();
-  data[4] = vd6283tx_get_als_ch5();*/
+  int i = 0;
+  float angle = 0;
+  HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_2);
+  USART2_RegisterCallback(proccesDmaData);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -115,36 +125,77 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-//	  if(vd6283tx_get_interrupt() == 0x00)
-//	  {
-//		  data[0] = vd6283tx_get_als_ch1();
-//	  	  data[1] = vd6283tx_get_als_ch2();
-//	  	  data[2] = vd6283tx_get_als_ch3();
-//	  	  data[3] = vd6283tx_get_als_ch4();
-//	  	  data[4] = vd6283tx_get_als_ch5();
-//	  	  data[5] = vd6283tx_get_als_ch6();
-//	  	  vd6283tx_clear_interrupt();
-//	  }
-//	  memset(formated_text, '\0', sizeof(formated_text));
-//	  sprintf(formated_text, "%0.0f,%0.0f,%0.0f,%0.0f,%0.0f,%0.0f\r\n", data[0],data[1],data[2],data[3],data[4],data[5]);
-//	  USART2_PutBuffer((uint8_t*)formated_text, strlen(formated_text));
-//	  LL_mDelay(1000);
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 5);//0degree
-//	  LL_mDelay(3000);
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 15);//
-//	  LL_mDelay(3000);
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 25);
-//	  LL_mDelay(3000);
-	  Servo_Control(0);//0degree????????
-	  HAL_Delay(3000);
-	  Servo_Control(45); //45degree????????
-	  HAL_Delay(3000);
-	  Servo_Control(90); //90degree????????
-	  HAL_Delay(3000);
-	  Servo_Control(180); //180degree????????
-	  HAL_Delay(3000);
-	  Servo_Control(135); //135degree????????
-	  HAL_Delay(3000);
+#if !POLLING
+	  USART2_CheckDmaReception();
+	  LL_mDelay(10);
+#else
+	  if(status == 1)
+	  {
+		  if(!alreadyInitialized)
+		  {
+			  vd6283tx_init();
+			  status = 0;
+			  i = 0;
+			  angle = 0;
+			  alreadyInitialized = 1;
+			  vd6283tx_clear_interrupt();
+		  }
+	  }
+	  if(status == 2)
+	  {
+		  vd6283tx_de_init();
+		  status = 0;
+		  alreadyInitialized = 0;
+		  angleStep = 0;
+		  itterations = 0;
+	  }
+	  if(startSending == 1)
+	  {
+
+		  if(vd6283tx_get_interrupt() == 0x00)
+	  	  	  {
+			  	  if(i == 0)
+			  	  {
+			  	  	Servo_Control(0);
+			  	  	LL_mDelay(3000);
+			  	  }
+	  		  	  data[0] = vd6283tx_get_als_ch1();  //RED
+	  		  	  data[1] = vd6283tx_get_als_ch2();  //VISIBLE
+	  		  	  data[2] = vd6283tx_get_als_ch3();  //BLUE
+	  		  	  data[3] = vd6283tx_get_als_ch4();  //GREEN
+	  		  	  data[4] = vd6283tx_get_als_ch5();  //IR
+	  		  	  data[5] = vd6283tx_get_als_ch6();  //CLEAR
+	  		  	  vd6283tx_calculate_cct(data[0],data[3],data[2],cctData);
+	  		  	  vd6283tx_clear_interrupt();
+	  		  	  memset(formated_text, '\0', sizeof(formated_text));
+	  	  	  	  sprintf(formated_text, "%0.2f, %0.2f, %0.2f, %0.2f, %0.0fx\r\n",cctData[0],cctData[1],cctData[2],cctData[3], angle);
+	  	  	  	  USART2_PutBuffer((uint8_t*)formated_text, strlen(formated_text));
+	  	  	  	  i++;
+	  	  	  	  angle += angleStep;
+	  	  	  	  if(i != itterations)
+	  	  	  	  {
+	  	  	  	  	  Servo_Control(angle);
+	  	  	  	  	  LL_mDelay(100*angleStep);
+//	  	  	  	  	  vd6283tx_clear_interrupt();
+	  	  	  	  }
+	  	  	  	  if(i == itterations+1)
+	  	  	  	  {
+	  	  	  		  status = 2;
+	  	  	  		  startSending = 0;
+	  	  	  		  memset(formated_text, '\0', sizeof(formated_text));
+	  	  	  		  sprintf(formated_text, "o");
+	  	  	  		  USART2_PutBuffer((uint8_t*)formated_text, strlen(formated_text));
+	  	  	  		  LL_mDelay(1000);
+	  	  	  		  vd6283tx_de_init();
+	  	  	  		  alreadyInitialized = 0;
+	  	  	  	  }
+	  	  	  }
+		  else
+			  LL_mDelay(10);
+	  }
+	  else
+		  LL_mDelay(100);
+#endif
   }
   /* USER CODE END 3 */
 }
@@ -200,9 +251,51 @@ void SystemClock_Config(void)
 void Servo_Control(uint16_t angle)
 {
    float temp;
-   temp =(1.0 / 9.0) * angle + 5.0;  //占空比�?? = 1/9 * 角度 + 5
-   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint16_t )temp);//修改占空�????????
-   //htim3.Instance->CCR1 = temp;//修改占空�????????
+   temp =(1.0 / 9.0) * angle + 5.0;  //�?�空比�?? = 1/9 * 角度 + 5
+   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (uint16_t )temp);//修改�?�空�????????
+   //htim3.Instance->CCR1 = temp;//修改�?�空�????????
+}
+
+void proccesDmaData(uint8_t sign)
+{
+	static char response[2] = {0};
+	static uint8_t angleChange = 0;
+	if(angleChange == 1)
+	{
+		angleStep = sign;
+		itterations = 180/angleStep;
+		angleChange = 0;
+	}
+	if(sign == '1' && angleChange == 0)
+	{
+		status = 1;
+		startSending = 0;
+		sprintf(response, "%d",status);
+		USART2_PutBuffer((uint8_t*)response, strlen(response));
+		LL_mDelay(1000);
+		memset(data, '\0', sizeof(data));
+		angleChange = 1;
+	}
+	if(sign == '2')
+	{
+		status = 2;
+		angleStep = 0;
+		itterations = 0;
+		startSending = 0;
+		sprintf(response, "%d",status);
+		USART2_PutBuffer((uint8_t*)response, strlen(response));
+		LL_mDelay(1000);
+		memset(data, '\0', sizeof(data));
+	}
+	if(sign == '3')
+	{
+		status = 3;
+		startSending = 1;
+		sprintf(response, "%d",status);
+		USART2_PutBuffer((uint8_t*)response, strlen(response));
+		LL_mDelay(1000);
+		memset(data, '\0', sizeof(data));
+	}
 }
 /* USER CODE END 4 */
 

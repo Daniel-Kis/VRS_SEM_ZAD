@@ -36,21 +36,21 @@ uint8_t vd6283tx_init(void)
 		//return status;
 	}
 	vd6283tx_ctrl_reg_reset();
-	LL_mDelay(200);
+	LL_mDelay(10);
 	vd6283tx_ctrl_reg_init(0x07, 0x01);
-	LL_mDelay(200);
+	LL_mDelay(10);
 	vd6283tx_set_als_gain();
-	LL_mDelay(200);
+	LL_mDelay(10);
 	vd6283tx_set_als_exposure();
-	LL_mDelay(200);
+	LL_mDelay(10);
 	vd6283tx_set_gpio1();
-	LL_mDelay(200);
+	LL_mDelay(10);
 	vd6283tx_sda_config();
-	LL_mDelay(200);
+	LL_mDelay(10);
 	vd6283tx_als_channel_enable();
-	LL_mDelay(200);
+	LL_mDelay(10);
 	vd6283tx_als_channel6_enable();
-	LL_mDelay(200);
+	LL_mDelay(10);
 
 	return status;
 }
@@ -254,6 +254,10 @@ void vd6283tx_calculate_cct(int chRed, int chGreen, int chBlue, double *returnDa
 	}
 	n = (x-0.3320)/(0.1858-y);
 	cct = (437*(n*n*n))+(3601*(n*n))+(6861*n)+5517;
+	if(cct > 25000)
+		cct = 25000;
+	if(cct < 0)
+		cct = 0;
 	returnData[0] = tempY * exposure_time;
 	returnData[1] = cct;
 	returnData[2] = x;
